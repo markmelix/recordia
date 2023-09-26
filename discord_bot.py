@@ -1,6 +1,5 @@
 from datetime import datetime
 import discord
-import sqlite3
 
 from discord.ext import tasks
 from dotenv import load_dotenv
@@ -9,8 +8,8 @@ from common import *
 load_dotenv()
 TOKEN = getenv("DISCORD_TOKEN")
 
-GUILD = "Простое Сообщество"
-LONGCATS = {"agent_of_silence", "а.т.#2766"}
+# GUILD, LONGCATS = "Простое Сообщество", {"agent_of_silence", "а.т.#2766"}
+GUILD, LONGCATS = "Mark's Testing Polygon", {"markmelix2"}
 
 create_common_tables()
 
