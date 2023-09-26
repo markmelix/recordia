@@ -18,8 +18,14 @@ class MyClient(discord.Client):
         super().__init__(*args, **kwargs)
         self.longcats = {}
 
-    async def setup_hook(self):
-        self.background_task.start()
+    async def on_ready(self):
+        print(f"Logged in as {self.user} (ID: {self.user.id})")
+        print("------")
+
+        self.guild = discord.utils.get(self.guilds, name=GUILD)
+        self.longcats = set(
+            filter(lambda member: member.name in LONGCATS, self.guild.members)
+        )
 
     async def on_voice_state_update(
         self,
@@ -52,15 +58,6 @@ class MyClient(discord.Client):
         )
         con.commit()
         cur.close()
-
-    async def on_ready(self):
-        print(f"Logged in as {self.user} (ID: {self.user.id})")
-        print("------")
-
-        self.guild = discord.utils.get(self.guilds, name=GUILD)
-        self.longcats = set(
-            filter(lambda member: member.name in LONGCATS, self.guild.members)
-        )
 
 
 client = MyClient()
