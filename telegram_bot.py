@@ -15,7 +15,10 @@ TOKEN = getenv("TELEGRAM_TOKEN")
 bot = Bot(TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher()
 
-CHATS = {425717640}
+CHATS = {
+    425717640,
+    891074228,
+}
 
 # Задержка цикла отправки уведомлений в секундах
 NOTIFICATION_DELAY = 1

@@ -9,9 +9,8 @@ from common import *
 load_dotenv()
 TOKEN = getenv("DISCORD_TOKEN")
 
-# GUILD = "Простое Сообщество"
-GUILD = "Mark's Testing Polygon"
-LONGCATS = {"agent_of_silence", "а.т.#2766", "markmelix2"}
+GUILD = "Простое Сообщество"
+LONGCATS = {"agent_of_silence", "а.т.#2766"}
 
 create_common_tables()
 
