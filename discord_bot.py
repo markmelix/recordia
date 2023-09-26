@@ -1,7 +1,6 @@
 from datetime import datetime
 import discord
 
-from discord.ext import tasks
 from dotenv import load_dotenv
 from common import *
 
@@ -62,10 +61,6 @@ class MyClient(discord.Client):
         self.longcats = set(
             filter(lambda member: member.name in LONGCATS, self.guild.members)
         )
-
-    @tasks.loop(seconds=1)
-    async def background_task(self):
-        pass
 
 
 client = MyClient()
