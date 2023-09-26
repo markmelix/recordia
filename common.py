@@ -10,6 +10,8 @@ def getenv(name):
 
 DBNAME = "rec.db"
 
+DTFORMAT = "%a %d %b, %H:%M:%S"
+
 con = sqlite3.connect(DBNAME)
 
 

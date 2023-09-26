@@ -11,6 +11,7 @@ python = "^3.11"
 python-dotenv = "^1.0.0"
 discord-py-self = {extras = ["voice"], version = "^2.0.0"}
 aiogram = "^3.1.0"
+discord-ext-audiorec = {path = "/home/mark/code/forks/discord-ext-audiorec"}
 
 
 [build-system]
