@@ -8,6 +8,7 @@ from common import *
 
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramBadRequest
 
 load_dotenv()
 
@@ -17,7 +18,7 @@ dp = Dispatcher()
 
 CHATS = {
     425717640,
-    891074228,
+    # 891074228,
 }
 
 # Задержка цикла отправки уведомлений в секундах
@@ -26,14 +27,13 @@ NOTIFICATION_DELAY = 1
 # Московское стандартное время соответствует UTC+3
 TZDELTA = timedelta(hours=3)
 
-DTFORMAT = "%a %d %b, %H:%M:%S"
-
 create_common_tables()
 
 last_recording_id = None
 
 
 async def notification_task():
+    print("Started notification loop\n------")
     global last_recording_id
     while True:
         cur = con.cursor()
@@ -52,7 +52,12 @@ async def notification_task():
                 text = f'Longcat [{fullname}/{nickname}] сейчас в "{channel}"'
 
             for chat in CHATS:
-                await bot.send_message(chat, text)
+                try:
+                    await bot.send_message(chat, text)
+                except TelegramBadRequest as e:
+                    print(
+                        f"Error while sending notification message to chat with id {chat}: {e}"
+                    )
 
             last_recording_id = id
 
@@ -63,4 +68,10 @@ async def notification_task():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    asyncio.run(notification_task())
+    try:
+        asyncio.run(notification_task())
+    except KeyboardInterrupt as e:
+        print()
+    finally:
+        con.close()
+        logging.disable()
