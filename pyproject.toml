@@ -9,9 +9,9 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"
 python-dotenv = "^1.0.0"
-discord-py-self = {extras = ["voice"], version = "^2.0.0"}
 aiogram = "^3.1.0"
-discord-ext-audiorec = {path = "/home/mark/code/forks/discord-ext-audiorec"}
+discord-py-self = {git = "https://github.com/dolfies/discord.py-self.git"}
+discord-ext-audiorec = {path = "/home/mark/code/forks/discord-ext-audiorec/dist/discord_ext_audiorec-0.1.6-cp311-cp311-linux_x86_64.whl"}
 
 
 [build-system]

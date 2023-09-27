@@ -1,3 +1,4 @@
+import logging
 import discord
 
 from datetime import datetime
@@ -58,8 +59,6 @@ class MyClient(discord.Client):
 
     async def stop_recording(self, filename):
         print("Running stop recording checks")
-        print(self.vclient)
-        print(self.vclient.is_recording())
         if (
             self.vclient is not None
             and self.vclient.is_recording()
@@ -72,24 +71,19 @@ class MyClient(discord.Client):
                 pass
             with open(f"records/{filename}.wav", "wb") as file:
                 file.write(bytes)
+        else:
+            return
+        print(bytes)
 
     def record(self):
         print("Start recording")
-        print(self.vclient._connection)
         self.vclient.record(lambda e: print(f"Error happened while recording: {e}"))
-
-    @tasks.loop(seconds=1)
-    async def recording_checker(self):
-        if self.vclient is not None and not self.vclient.is_recording():
-            self.record()
 
     async def record_or_stop(self, vchannel, filename: str):
         if vchannel is not None and self.vclient is None:
-            self.recording_checker.start()
             await vchannel.connect(cls=NativeVoiceClient)
-            await self.vclient.connect()
+            self.record()
         elif vchannel is None and self.vclient is not None:
-            self.recording_checker.stop()
             await self.stop_recording(filename)
             await self.vclient.disconnect(force=True)
 
