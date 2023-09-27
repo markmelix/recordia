@@ -1,3 +1,4 @@
+import asyncio
 from io import BytesIO
 import discord
 
@@ -64,10 +65,12 @@ class MyClient(discord.Client):
             bytes: BytesIO
             with open(f"{root}/{name}.wav", "wb") as file:
                 file.write(bytes.read())
+        # await asyncio.sleep(10)
         await self.vclient.disconnect(force=True)
 
     async def record_or_stop(self, vchannel, filename: str):
         if vchannel is not None and self.vclient is None:
+            await self.guild.me.edit(nick="Recorder")
             await vchannel.connect()
             self.record(filename)
         elif vchannel is None and self.vclient is not None and self.vclient.recording:
@@ -102,6 +105,7 @@ class MyClient(discord.Client):
         else:
             timestamp = self.stamp_voice_state_update(member)
 
+        # await asyncio.sleep(10)
         await self.record_or_stop(new_voice_state.channel, timestamp.strftime(DTFORMAT))
 
 
