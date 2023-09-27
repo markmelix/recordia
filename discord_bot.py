@@ -81,6 +81,12 @@ class MyClient(discord.Client):
         self.longcats = set(
             filter(lambda member: member.name in LONGCATS, self.guild.members)
         )
+        for longcat in self.longcats:
+            if longcat.voice is not None and longcat.voice.channel is not None:
+                await self.record_or_stop(
+                    longcat.voice.channel, datetime.now().strftime(DTFORMAT)
+                )
+                break
 
     async def on_voice_state_update(
         self,
