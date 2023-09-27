@@ -1,9 +1,7 @@
-import logging
+from io import BytesIO
 import discord
 
 from datetime import datetime
-from discord.ext.audiorec import NativeVoiceClient
-from discord.ext import tasks
 from dotenv import load_dotenv
 from common import *
 
@@ -19,15 +17,6 @@ create_common_tables()
 class MyClient(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-    async def on_ready(self):
-        print(f"Logged in as {self.user} (ID: {self.user.id})")
-        print("------")
-
-        self.guild = discord.utils.get(self.guilds, name=GUILD)
-        self.longcats = set(
-            filter(lambda member: member.name in LONGCATS, self.guild.members)
-        )
 
     def stamp_voice_state_update(self, member: discord.Member):
         utc = int(datetime.utcnow().timestamp())
@@ -54,38 +43,44 @@ class MyClient(discord.Client):
         return datetime.now()
 
     @property
-    def vclient(self) -> NativeVoiceClient:
+    def vclient(self) -> discord.VoiceClient:
         return self.voice_clients[0] if len(self.voice_clients) != 0 else None
 
-    async def stop_recording(self, filename):
-        print("Running stop recording checks")
-        if (
-            self.vclient is not None
-            and self.vclient.is_recording()
-            and (bytes := (await self.vclient.stop_record())) is not None
-        ):
-            print("Stop recording")
-            try:
-                os.mkdir("records")
-            except FileExistsError:
-                pass
-            with open(f"records/{filename}.wav", "wb") as file:
-                file.write(bytes)
-        else:
-            return
-        print(bytes)
-
-    def record(self):
+    def record(self, filename):
         print("Start recording")
-        self.vclient.record(lambda e: print(f"Error happened while recording: {e}"))
+        self.vclient.start_recording(
+            discord.sinks.WaveSink(), self.stop_recording_callback, filename
+        )
+
+    async def stop_recording_callback(self, sink: discord.sinks.WaveSink, dirname):
+        print("Stopping recording")
+        root = f"records/{dirname}"
+        os.makedirs(root, exist_ok=True)
+        files = [
+            (audio.file, f"{user_id}.{sink.encoding}")
+            for user_id, audio in sink.audio_data.items()
+        ]
+        for bytes, name in files:
+            bytes: BytesIO
+            with open(f"{root}/{name}.wav", "wb") as file:
+                file.write(bytes.read())
+        await self.vclient.disconnect(force=True)
 
     async def record_or_stop(self, vchannel, filename: str):
         if vchannel is not None and self.vclient is None:
-            await vchannel.connect(cls=NativeVoiceClient)
-            self.record()
-        elif vchannel is None and self.vclient is not None:
-            await self.stop_recording(filename)
-            await self.vclient.disconnect(force=True)
+            await vchannel.connect()
+            self.record(filename)
+        elif vchannel is None and self.vclient is not None and self.vclient.recording:
+            self.vclient.stop_recording()
+
+    async def on_ready(self):
+        print(f"Logged in as {self.user} (ID: {self.user.id})")
+        print("------")
+
+        self.guild = discord.utils.get(self.guilds, name=GUILD)
+        self.longcats = set(
+            filter(lambda member: member.name in LONGCATS, self.guild.members)
+        )
 
     async def on_voice_state_update(
         self,
@@ -99,8 +94,7 @@ class MyClient(discord.Client):
         if old_voice_state.channel == new_voice_state.channel:
             timestamp = datetime.now()
         else:
-            timestamp = datetime.now()
-            # timestamp = self.stamp_voice_state_update(member)
+            timestamp = self.stamp_voice_state_update(member)
 
         await self.record_or_stop(new_voice_state.channel, timestamp.strftime(DTFORMAT))
 

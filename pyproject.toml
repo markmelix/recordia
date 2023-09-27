@@ -10,8 +10,8 @@ readme = "README.md"
 python = "^3.11"
 python-dotenv = "^1.0.0"
 aiogram = "^3.1.0"
-discord-py-self = {git = "https://github.com/dolfies/discord.py-self.git"}
-discord-ext-audiorec = {path = "/home/mark/code/forks/discord-ext-audiorec/dist/discord_ext_audiorec-0.1.6-cp311-cp311-linux_x86_64.whl"}
+pynacl = "^1.5.0"
+discord-py-self = {path = "/home/mark/code/forks/discord.py-self/dist/discord.py_self-2.1.0a4811+g4f2a6df9-py3-none-any.whl"}
 
 
 [build-system]
