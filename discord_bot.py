@@ -25,6 +25,8 @@ class LongcatRecorder(discord.Client):
         connect_delay: int = 10,
         disconnect_delay: int = 15,
         disable_connect_delay_just_after_start: bool = True,
+        stamp=True,
+        record=True,
         **kwargs,
     ):
         """guild_name       - название сервера, в котором стоит вести слежку
@@ -121,10 +123,13 @@ class LongcatRecorder(discord.Client):
     def vclient(self) -> discord.VoiceClient:
         return self.voice_clients[0] if len(self.voice_clients) != 0 else None
 
+    def privacy_respected(self, vchannel):
+        return len(vchannel.members) >= self.privacy_doorstep
+
     async def record_or_stop(self, vchannel, save_id):
         if (
             vchannel is not None
-            and len(vchannel.members) >= self.privacy_doorstep
+            and self.privacy_respected(vchannel)
             and self.vclient is None
         ):
             await vchannel.connect()
