@@ -1,8 +1,13 @@
+from datetime import timedelta, timezone
 import sqlite3
 
 DBNAME = "rec.db"
 
 DTFORMAT = "%a %d %b %H_%M_%S"
+TIMEZONES = {"Europe/Moscow": timezone(timedelta(hours=3))}
+
+# В какую временную зону форматировать utc timestamps
+UTCTZ = TIMEZONES["Europe/Moscow"]
 
 con = sqlite3.connect(DBNAME)
 

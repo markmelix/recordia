@@ -4,9 +4,9 @@ import discord
 
 from io import BytesIO
 from typing import Collection
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
-from common import DTFORMAT, con, create_common_tables
+from common import DTFORMAT, UTCTZ, con, create_common_tables
 
 PROJECT_ROOT = "/".join(__file__.split("/")[:-1])
 
@@ -65,7 +65,7 @@ class LongcatRecorder(discord.Client):
                 if not self.disable_connect_delay_just_after_start:
                     await asyncio.sleep(self.connect_delay)
                 await self.record_or_stop(
-                    longcat.voice.channel, datetime.now().strftime(DTFORMAT)
+                    longcat.voice.channel, self.stamp_voice_state(longcat)
                 )
                 break
 
@@ -79,15 +79,17 @@ class LongcatRecorder(discord.Client):
             return
 
         if old_voice_state.channel == new_voice_state.channel:
-            timestamp = datetime.now()
+            timestamp = datetime.utcnow()
         else:
-            timestamp = self.stamp_voice_state_update(member)
+            timestamp = self.stamp_voice_state(member)
 
         await asyncio.sleep(self.connect_delay)
         await self.record_or_stop(new_voice_state.channel, timestamp.strftime(DTFORMAT))
 
-    def stamp_voice_state_update(self, member: discord.Member):
-        utc = int(datetime.utcnow().timestamp())
+    def stamp_voice_state(self, member: discord.Member):
+        utc_dt = datetime.now(timezone.utc)
+        utc = int(utc_dt.timestamp())
+
         nickname = member.name
 
         try:
@@ -108,7 +110,12 @@ class LongcatRecorder(discord.Client):
         con.commit()
         cur.close()
 
-        return datetime.now()
+        print()
+        print(f"Stamped at {utc_dt.astimezone(UTCTZ).strftime(DTFORMAT)}")
+        print(f'[{fullname}/{nickname}] in "{channel}"')
+        print()
+
+        return utc_dt
 
     @property
     def vclient(self) -> discord.VoiceClient:
