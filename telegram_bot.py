@@ -74,6 +74,8 @@ if __name__ == "__main__":
 
     NOTIFICATION_LOOP_DELAY = 1
 
+    print("Running in", "debug" if DEBUG else "release", "mode")
+
     try:
         asyncio.run(
             LongcatNotifier(

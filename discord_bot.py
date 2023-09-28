@@ -51,7 +51,8 @@ class LongcatRecorder(discord.Client):
         )
 
     async def on_ready(self):
-        print(f"Logged in as {self.user} (ID: {self.user.id})")
+        print(f"Logged in as {self.user}")
+        print(f'Watching {self.longcat_names} within "{self.guild_name}" guild')
         print("------")
 
         self.guild = discord.utils.get(self.guilds, name=GUILD)
@@ -170,6 +171,8 @@ if __name__ == "__main__":
         GUILD, LONGCATS = "Mark's Testing Polygon", {"markmelix2"}
     else:
         GUILD, LONGCATS = "Простое Сообщество", {"agent_of_silence", "а.т.#2766"}
+
+    print("Running in", "debug" if DEBUG else "release", "mode")
 
     LongcatRecorder(
         guild_name=GUILD,
