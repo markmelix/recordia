@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "longcat-recorder"
+version = "0.1.0"
+description = ""
+authors = ["Mark Meliksetyan <markmelix@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+python-dotenv = "1.0.0"
+aiogram = "3.1.0"
+pynacl = "1.5.0"
+discord-py-self = {git = "https://github.com/markmelix/discord.py-self.git", rev = "2979801e58488078f817e1486e6ce8c71a2e1be5"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
