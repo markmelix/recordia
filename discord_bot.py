@@ -58,6 +58,7 @@ class LongcatRecorder(discord.Client):
         print("------")
 
         self.guild = discord.utils.get(self.guilds, name=GUILD)
+        self.initial_nickname = self.guild.me.nick
         self.longcats = set(
             filter(lambda member: member.name in LONGCATS, self.guild.members)
         )
@@ -81,7 +82,7 @@ class LongcatRecorder(discord.Client):
             return
 
         if old_voice_state.channel == new_voice_state.channel:
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(timezone.utc)
         else:
             timestamp = self.stamp_voice_state(member)
 
@@ -135,6 +136,7 @@ class LongcatRecorder(discord.Client):
             and self.vclient is None
             and self.privacy_respected(vchannel)
         ):
+            await self.guild.me.edit(nick=f"{self.initial_nickname} (duplicant)")
             await vchannel.connect()
             self.record(save_id)
         elif (
@@ -142,6 +144,7 @@ class LongcatRecorder(discord.Client):
             and self.vclient.recording
             and (vchannel is None or self.have_to_go(vchannel))
         ):
+            await self.guild.me.edit(nick=self.initial_nickname)
             self.vclient.stop_recording()
 
     def record(self, save_id):
