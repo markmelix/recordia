@@ -36,6 +36,7 @@ class LongcatRecorder(discord.Client):
         disconnect_delay - задержка перед выходом из голосового чата
         disable_connect_delay_just_after_start:
         - отключить ли искусственную задержку перед подключением в голосовой чат, если бот только что запустился
+        staying_number   - сколько человек должно быть в голосовом чате, чтобы бот оставался в чате
         """
         super().__init__(*args, **kwargs)
 
@@ -136,7 +137,7 @@ class LongcatRecorder(discord.Client):
             and self.vclient is None
             and self.privacy_respected(vchannel)
         ):
-            await self.guild.me.edit(nick=f"{self.initial_nickname} (duplicant)")
+            await self.guild.me.edit(nick=f"Deputy {self.initial_nickname}")
             await vchannel.connect()
             self.record(save_id)
         elif (
@@ -199,7 +200,7 @@ if __name__ == "__main__":
     LongcatRecorder(
         guild_name=GUILD,
         longcat_names=LONGCATS,
-        privacy_doorstep=int(os.getenv("PRIVACY_DOORSTEP", 0 if DEBUG else 5)),
+        privacy_doorstep=int(os.getenv("PRIVACY_DOORSTEP", 0 if DEBUG else 3)),
         disconnect_delay=0 if DEBUG else 15,
         connect_delay=0 if DEBUG else 10,
     ).run(TOKEN)
