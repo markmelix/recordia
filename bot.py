@@ -252,7 +252,7 @@ if __name__ == "__main__":
         longcat_names=LONGCATS,
         notifiers=(
             BaseNotifier(),
-            # TelegramNotifier(chats=CHATS, token=TELEGRAM_TOKEN),
+            TelegramNotifier(chats=CHATS, token=TELEGRAM_TOKEN),
         ),
         privacy_doorstep=int(os.getenv("PRIVACY_DOORSTEP", 0 if DEBUG else 3)),
         disconnect_delay=0 if DEBUG else 15,
