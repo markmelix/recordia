@@ -1,14 +1,44 @@
-import asyncio
 import os
+import asyncio
 import discord
+import aiogram
 
 from io import BytesIO
 from typing import Collection
-from datetime import datetime, timezone
+from datetime import datetime
 from dotenv import load_dotenv
-from common import DTFORMAT, UTCTZ, con, create_common_tables
+
+DTFORMAT = "%a %d %b %H_%M_%S"
 
 PROJECT_ROOT = "/".join(__file__.split("/")[:-1])
+
+
+class BaseNotifier:
+    async def notify(self, timestamp: datetime, name: str, channel: str | None):
+        print()
+        print(f"Stamped at {timestamp.strftime(DTFORMAT)}")
+        print(f'{name} in "{channel}"')
+        print()
+
+
+class TelegramNotifier(aiogram.Bot):
+    def __init__(self, chats, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.chats = chats
+
+    async def notify(self, _: datetime, name: str, channel: str | None):
+        if channel is None:
+            text = f"Longcat {name} решил отдохнуть"
+        else:
+            text = f'Longcat {name} сейчас в "{channel}"'
+
+        for chat in self.chats:
+            try:
+                await self.send_message(chat, text)
+            except aiogram.exceptions.TelegramBadRequest as e:
+                print(
+                    f"Error while sending notification message to chat with id {chat}: {e}"
+                )
 
 
 class LongcatRecorder(discord.Client):
@@ -20,6 +50,7 @@ class LongcatRecorder(discord.Client):
         *args,
         guild_name: str,
         longcat_names: Collection[str],
+        notifiers: tuple,
         privacy_doorstep: int = 5,
         recorder_sink: discord.sinks.Sink | None = None,
         connect_delay: int = 10,
@@ -52,6 +83,7 @@ class LongcatRecorder(discord.Client):
             disable_connect_delay_just_after_start
         )
         self.staying_number = staying_number
+        self.notifiers = notifiers
 
     async def on_ready(self):
         print(f"Logged in as {self.user}")
@@ -83,17 +115,15 @@ class LongcatRecorder(discord.Client):
             return
 
         if old_voice_state.channel == new_voice_state.channel:
-            timestamp = datetime.now(timezone.utc)
+            timestamp = datetime.now()
         else:
-            timestamp = self.stamp_voice_state(member)
+            timestamp = await self.stamp_voice_state(member)
 
         await asyncio.sleep(self.connect_delay)
         await self.record_or_stop(new_voice_state.channel, timestamp.strftime(DTFORMAT))
 
-    def stamp_voice_state(self, member: discord.Member):
-        utc_dt = datetime.now(timezone.utc)
-        utc = int(utc_dt.timestamp())
-
+    async def stamp_voice_state(self, member: discord.Member):
+        timestamp = datetime.now()
         nickname = member.name
 
         try:
@@ -106,20 +136,12 @@ class LongcatRecorder(discord.Client):
         except AttributeError:
             channel = None
 
-        cur = con.cursor()
-        cur.execute(
-            "INSERT INTO history (utc, nickname, fullname, channel) VALUES (?, ?, ?, ?)",
-            (utc, nickname, fullname, channel),
-        )
-        con.commit()
-        cur.close()
+        name = f"[{fullname}/{nickname}]"
 
-        print()
-        print(f"Stamped at {utc_dt.astimezone(UTCTZ).strftime(DTFORMAT)}")
-        print(f'[{fullname}/{nickname}] in "{channel}"')
-        print()
+        for notifier in self.notifiers:
+            await notifier.notify(timestamp, name, channel)
 
-        return utc_dt
+        return timestamp
 
     @property
     def vclient(self) -> discord.VoiceClient:
@@ -180,12 +202,15 @@ class LongcatRecorder(discord.Client):
 
 
 if __name__ == "__main__":
-    create_common_tables()
     load_dotenv()
 
-    TOKEN = os.getenv("DISCORD_TOKEN")
+    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+    TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-    if TOKEN is None:
+    if DISCORD_TOKEN is None:
+        raise ValueError("Discord token was not provided")
+
+    if TELEGRAM_TOKEN is None:
         raise ValueError("Discord token was not provided")
 
     DEBUG = int(os.getenv("DEBUG", 0))
@@ -195,12 +220,25 @@ if __name__ == "__main__":
     else:
         GUILD, LONGCATS = "Простое Сообщество", {"agent_of_silence", "а.т.#2766"}
 
+    ADMINS = {
+        425717640,  # Mark
+    }
+    OTHERS = {
+        891074228,  # Anton
+    }
+
+    CHATS = ADMINS if DEBUG else ADMINS.union(OTHERS)
+
     print("Running in", "debug" if DEBUG else "release", "mode")
 
     LongcatRecorder(
         guild_name=GUILD,
         longcat_names=LONGCATS,
+        notifiers=(
+            BaseNotifier(),
+            TelegramNotifier(chats=CHATS, token=TELEGRAM_TOKEN),
+        ),
         privacy_doorstep=int(os.getenv("PRIVACY_DOORSTEP", 0 if DEBUG else 3)),
         disconnect_delay=0 if DEBUG else 15,
         connect_delay=0 if DEBUG else 10,
-    ).run(TOKEN)
+    ).run(DISCORD_TOKEN)
