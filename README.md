@@ -10,8 +10,6 @@ Discord бот логирует все подключения/отключени
 После установки нужных системных пакетов, введите ```poetry install``` в корне проекта. 
 
 ## Запуск ботов
-Каждого бота рекомендуется запускать в отдельном терминале.
 ```shell
-poetry run python discord_bot.py
-poetry run python python_bot.py
+poetry run python bot.py
 ```
