@@ -1,3 +1,4 @@
+import logging
 import os
 import asyncio
 import discord
@@ -41,6 +42,12 @@ class TelegramNotifier(aiogram.Bot):
                 )
 
 
+class SilenceAudioSource(discord.AudioSource):
+    def read(self) -> bytes:
+        # play 40ms of silence
+        return b"0" * 3840
+
+
 class LongcatRecorder(discord.Client):
     """Discord bot, отслеживающий и фиксирующий действия лонгкета в голосовых
     чатах указанного сервера."""
@@ -51,8 +58,9 @@ class LongcatRecorder(discord.Client):
         guild_name: str,
         longcat_names: Collection[str],
         notifiers: tuple,
+        record: bool = True,
         privacy_doorstep: int = 5,
-        recorder_sink: discord.sinks.Sink | None = None,
+        recorder_sink=None,
         connect_delay: int = 10,
         disconnect_delay: int = 15,
         disable_connect_delay_just_after_start: bool = True,
@@ -60,9 +68,10 @@ class LongcatRecorder(discord.Client):
         **kwargs,
     ):
         """guild_name       - название сервера, в котором стоит вести слежку
-        longcats         - ники аккаунтов лонгкета
+        longcat_names    - ники аккаунтов лонгкета
+        notifiers        - нотификаторы
         privacy_doorstep - сколько человек как минимум должно быть в голосовом чате, чтобы бот подключался
-        recorder_sink    - кодек записи голосовых сообщений, например, `discord.sinks.MP4Sink`, чтобы звук писался в .mp4 формате
+        recorder_sink    - **не** инициализированный кодек записи голосовых сообщений, например, `discord.sinks.MP4Sink`, чтобы звук писался в .mp4 формате
         connect_delay    - задержка перед подключением к голосовому чату
         disconnect_delay - задержка перед выходом из голосового чата
         disable_connect_delay_just_after_start:
@@ -73,10 +82,9 @@ class LongcatRecorder(discord.Client):
 
         self.guild_name = guild_name
         self.longcat_names = longcat_names
+        self.do_record = record
         self.privacy_doorstep = privacy_doorstep
-        self.recorder_sink = (
-            recorder_sink if recorder_sink else discord.sinks.WaveSink()
-        )
+        self.recorder_sink = recorder_sink if recorder_sink else discord.sinks.WaveSink
         self.connect_delay = connect_delay
         self.disconnect_delay = disconnect_delay
         self.disable_connect_delay_just_after_start = (
@@ -101,7 +109,8 @@ class LongcatRecorder(discord.Client):
                 if not self.disable_connect_delay_just_after_start:
                     await asyncio.sleep(self.connect_delay)
                 await self.record_or_stop(
-                    longcat.voice.channel, self.stamp_voice_state(longcat)
+                    longcat.voice.channel,
+                    (await self.stamp_voice_state(longcat)).strftime(DTFORMAT),
                 )
                 break
 
@@ -155,7 +164,8 @@ class LongcatRecorder(discord.Client):
 
     async def record_or_stop(self, vchannel, save_id):
         if (
-            vchannel is not None
+            self.do_record
+            and vchannel is not None
             and self.vclient is None
             and self.privacy_respected(vchannel)
         ):
@@ -174,12 +184,17 @@ class LongcatRecorder(discord.Client):
         """save_id - идентификатор сохранненых записей, например, timestamp"""
 
         print("Start recording")
+        self.vclient.play(
+            SilenceAudioSource()
+        )  # see https://github.com/Pycord-Development/pycord/issues/1432#issuecomment-1214196651
         self.vclient.start_recording(
-            self.recorder_sink, self.stop_recording_callback, save_id
+            self.recorder_sink(), self.stop_recording_callback, save_id
         )
 
     async def stop_recording_callback(self, sink: discord.sinks.Sink, save_id):
         print("Stopping recording")
+
+        self.vclient.stop()
 
         savedir = f"{PROJECT_ROOT}/records/{save_id}"
 
@@ -202,6 +217,7 @@ class LongcatRecorder(discord.Client):
 
 
 if __name__ == "__main__":
+    logging.disable(logging.INFO)
     load_dotenv()
 
     DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -236,7 +252,7 @@ if __name__ == "__main__":
         longcat_names=LONGCATS,
         notifiers=(
             BaseNotifier(),
-            TelegramNotifier(chats=CHATS, token=TELEGRAM_TOKEN),
+            # TelegramNotifier(chats=CHATS, token=TELEGRAM_TOKEN),
         ),
         privacy_doorstep=int(os.getenv("PRIVACY_DOORSTEP", 0 if DEBUG else 3)),
         disconnect_delay=0 if DEBUG else 15,
