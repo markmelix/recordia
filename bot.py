@@ -177,8 +177,8 @@ class LongcatRecorder(discord.Client):
             and self.vclient.recording
             and (vchannel is None or self.have_to_go(vchannel))
         ):
-            await self.guild.me.edit(nick=self.initial_nickname)
             self.vclient.stop_recording()
+            await self.guild.me.edit(nick=self.initial_nickname)
 
     def record(self, save_id):
         """save_id - идентификатор сохранненых записей, например, timestamp"""
