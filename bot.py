@@ -49,8 +49,8 @@ class SilenceAudioSource(discord.AudioSource):
 
 
 class LongcatRecorder(discord.Client):
-    """Discord bot, отслеживающий и фиксирующий действия лонгкета в голосовых
-    чатах указанного сервера."""
+    """Discord bot, отслеживающий и фиксирующий и записывающий действия лонгкета
+    в голосовых чатах указанного сервера."""
 
     def __init__(
         self,
@@ -59,8 +59,8 @@ class LongcatRecorder(discord.Client):
         longcat_names: Collection[str],
         notifiers: tuple,
         record: bool = True,
-        privacy_doorstep: int = 5,
         recorder_sink=None,
+        privacy_doorstep: int = 5,
         connect_delay: int = 10,
         disconnect_delay: int = 15,
         disable_connect_delay_just_after_start: bool = True,
@@ -70,8 +70,9 @@ class LongcatRecorder(discord.Client):
         """guild_name       - название сервера, в котором стоит вести слежку
         longcat_names    - ники аккаунтов лонгкета
         notifiers        - нотификаторы
-        privacy_doorstep - сколько человек как минимум должно быть в голосовом чате, чтобы бот подключался
+        record           - стоит ли записывать, что говорят люди в голосовом чате
         recorder_sink    - **не** инициализированный кодек записи голосовых сообщений, например, `discord.sinks.MP4Sink`, чтобы звук писался в .mp4 формате
+        privacy_doorstep - сколько человек как минимум должно быть в голосовом чате, чтобы бот подключался
         connect_delay    - задержка перед подключением к голосовому чату
         disconnect_delay - задержка перед выходом из голосового чата
         disable_connect_delay_just_after_start:
