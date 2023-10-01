@@ -1,5 +1,5 @@
-import logging
 import os
+import logging
 import asyncio
 import discord
 import aiogram

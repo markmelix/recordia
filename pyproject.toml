@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "longcat-recorder"
-version = "0.1.0"
+version = "2.0.0"
 description = ""
 authors = ["Mark Meliksetyan <markmelix@gmail.com>"]
 license = "MIT"
