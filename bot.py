@@ -163,7 +163,9 @@ class LongcatRecorder(discord.Client):
     def have_to_go(self, vchannel):
         return (len(vchannel.members) - 1) < self.staying_number
 
-    async def record_or_stop(self, vchannel, save_id):
+    async def record_or_stop(
+        self, vchannel: discord.member.ConnectableChannel, save_id
+    ):
         if (
             self.do_record
             and vchannel is not None
@@ -171,7 +173,12 @@ class LongcatRecorder(discord.Client):
             and self.privacy_respected(vchannel)
         ):
             await self.guild.me.edit(nick=f"Deputy {self.initial_nickname}")
-            await vchannel.connect()
+
+            try:
+                await vchannel.connect()
+            except discord.errors.ClientException as e:
+                print(f"Error while connecting to a voice channel: {e}")
+
             self.record(save_id)
         elif (
             self.vclient is not None
