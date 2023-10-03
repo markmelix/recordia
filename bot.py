@@ -164,6 +164,10 @@ class LongcatRecorder(discord.Client):
     def have_to_go(self, vchannel):
         return (len(vchannel.members) - 1) < self.staying_number
 
+    async def change_nickname(self, old, new):
+        await self.guild.me.edit(nick=new)
+        print(f'Changed current nick "{old}" to "{new}"')
+
     async def record_or_stop(self, vchannel, save_id):
         if (
             self.do_record
@@ -171,29 +175,52 @@ class LongcatRecorder(discord.Client):
             and self.vclient is None
             and self.privacy_respected(vchannel)
         ):
+            if self.initial_nickname:
+                await self.change_nickname(
+                    self.guild.me.nick,
+                    "Deputy " + self.initial_nickname.lstrip("Deputy "),
+                )
+
             try:
                 await vchannel.connect()
             except discord.errors.ClientException as e:
                 print(f"Error while connecting to a voice channel: {e}")
 
-            self.record(save_id)
+            await self.start_recording(save_id)
         elif (
             self.vclient is not None
             and self.vclient.recording
             and (vchannel is None or self.have_to_go(vchannel))
         ):
-            self.vclient.stop_recording()
+            await self.stop_recording()
+            await self.reset_nickname()
 
-    def record(self, save_id):
+    async def start_recording(self, save_id):
         """save_id - идентификатор сохранненых записей, например, timestamp"""
 
         print("Start recording")
+
         self.vclient.play(
             SilenceAudioSource()
         )  # see https://github.com/Pycord-Development/pycord/issues/1432#issuecomment-1214196651
-        self.vclient.start_recording(
-            self.recorder_sink(), self.stop_recording_callback, save_id, sync_start=True
-        )
+
+        if self.vclient and not self.vclient.recording:
+            self.vclient.start_recording(
+                self.recorder_sink(),
+                self.stop_recording_callback,
+                save_id,
+                sync_start=True,
+            )
+
+    async def reset_nickname(self):
+        if self.initial_nickname:
+            await self.change_nickname(
+                self.guild.me.nick, self.initial_nickname.lstrip("Deputy ")
+            )
+
+    async def stop_recording(self):
+        if self.vclient and self.vclient.recording:
+            self.vclient.stop_recording()
 
     async def stop_recording_callback(self, sink: discord.sinks.Sink, save_id):
         print(f"Stopping recording")
@@ -230,6 +257,13 @@ class LongcatRecorder(discord.Client):
             print("Disconnected from voice channel")
 
         print("Stopped recording")
+
+    async def close(self):
+        if self.vclient and self.vclient.recording:
+            await self.stop_recording()
+            await self.reset_nickname()
+
+        await super().close()
 
 
 if __name__ == "__main__":
