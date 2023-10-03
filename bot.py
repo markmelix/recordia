@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 DTFORMAT = "%a %d %b %H_%M_%S"
 
-PROJECT_ROOT = "/".join(__file__.split("/")[:-1])
+PROJECT_ROOT = os.path.dirname(__file__)
 
 
 class BaseNotifier:
@@ -93,6 +93,7 @@ class LongcatRecorder(discord.Client):
         )
         self.staying_number = staying_number
         self.notifiers = notifiers
+        self.last_timestamp = None
 
     async def on_ready(self):
         print(f"Logged in as {self.user}")
@@ -133,7 +134,7 @@ class LongcatRecorder(discord.Client):
         await self.record_or_stop(new_voice_state.channel, timestamp.strftime(DTFORMAT))
 
     async def stamp_voice_state(self, member: discord.Member):
-        timestamp = datetime.now()
+        self.last_timestamp = datetime.now()
         nickname = member.name
 
         try:
@@ -149,9 +150,9 @@ class LongcatRecorder(discord.Client):
         name = f"[{fullname}/{nickname}]"
 
         for notifier in self.notifiers:
-            await notifier.notify(timestamp, name, channel)
+            await notifier.notify(self.last_timestamp, name, channel)
 
-        return timestamp
+        return self.last_timestamp
 
     @property
     def vclient(self) -> discord.VoiceClient:
@@ -163,17 +164,13 @@ class LongcatRecorder(discord.Client):
     def have_to_go(self, vchannel):
         return (len(vchannel.members) - 1) < self.staying_number
 
-    async def record_or_stop(
-        self, vchannel: discord.member.ConnectableChannel, save_id
-    ):
+    async def record_or_stop(self, vchannel, save_id):
         if (
             self.do_record
             and vchannel is not None
             and self.vclient is None
             and self.privacy_respected(vchannel)
         ):
-            await self.guild.me.edit(nick=f"Deputy {self.initial_nickname}")
-
             try:
                 await vchannel.connect()
             except discord.errors.ClientException as e:
@@ -186,7 +183,6 @@ class LongcatRecorder(discord.Client):
             and (vchannel is None or self.have_to_go(vchannel))
         ):
             self.vclient.stop_recording()
-            await self.guild.me.edit(nick=self.initial_nickname)
 
     def record(self, save_id):
         """save_id - идентификатор сохранненых записей, например, timestamp"""
@@ -196,15 +192,19 @@ class LongcatRecorder(discord.Client):
             SilenceAudioSource()
         )  # see https://github.com/Pycord-Development/pycord/issues/1432#issuecomment-1214196651
         self.vclient.start_recording(
-            self.recorder_sink(), self.stop_recording_callback, save_id
+            self.recorder_sink(), self.stop_recording_callback, save_id, sync_start=True
         )
 
     async def stop_recording_callback(self, sink: discord.sinks.Sink, save_id):
-        print("Stopping recording")
+        print(f"Stopping recording")
+        if self.last_timestamp:
+            taken = datetime.now() - self.last_timestamp
+            print(f"Taken {taken}")
 
-        self.vclient.stop()
+        if self.vclient is not None:
+            self.vclient.stop()
 
-        savedir = f"{PROJECT_ROOT}/records/{save_id}"
+        savedir = os.path.join(PROJECT_ROOT, "records", save_id)
 
         os.makedirs(savedir, exist_ok=True)
 
@@ -217,11 +217,19 @@ class LongcatRecorder(discord.Client):
 
         for bytes, name in files:
             bytes: BytesIO
-            with open(f"{savedir}/{name}", "wb") as file:
+            path = os.path.join(savedir, name)
+            with open(path, "wb") as file:
                 file.write(bytes.read())
+                print(f'Saved "{path}"')
 
+        print(f"Waiting {self.disconnect_delay}s before disconecting voice channel")
         await asyncio.sleep(self.disconnect_delay)
-        await self.vclient.disconnect(force=True)
+
+        if self.vclient is not None:
+            await self.vclient.disconnect(force=True)
+            print("Disconnected from voice channel")
+
+        print("Stopped recording")
 
 
 if __name__ == "__main__":
@@ -258,10 +266,10 @@ if __name__ == "__main__":
     LongcatRecorder(
         guild_name=GUILD,
         longcat_names=LONGCATS,
-        notifiers=(
-            BaseNotifier(),
-            TelegramNotifier(chats=CHATS, token=TELEGRAM_TOKEN),
-        ),
+        notifiers=(BaseNotifier(),)
+        if DEBUG
+        else (BaseNotifier(), TelegramNotifier(chats=CHATS, token=TELEGRAM_TOKEN)),
+        recorder_sink=discord.sinks.OGGSink,
         privacy_doorstep=int(os.getenv("PRIVACY_DOORSTEP", 0 if DEBUG else 3)),
         disconnect_delay=0 if DEBUG else 15,
         connect_delay=0 if DEBUG else 10,
