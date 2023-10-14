@@ -1,5 +1,6 @@
+#!/usr/bin/env python3
+
 import os
-import logging
 import asyncio
 import discord
 import aiogram
@@ -29,9 +30,9 @@ class TelegramNotifier(aiogram.Bot):
 
     async def notify(self, _: datetime, name: str, channel: str | None):
         if channel is None:
-            text = f"Longcat {name} решил отдохнуть"
+            text = f"{name} desided to take a rest"
         else:
-            text = f'Longcat {name} сейчас в "{channel}"'
+            text = f'{name} is inside "{channel}"'
 
         for chat in self.chats:
             try:
@@ -48,17 +49,18 @@ class SilenceAudioSource(discord.AudioSource):
         return b"0" * 3840
 
 
-class LongcatRecorder(discord.Client):
-    """Discord bot, отслеживающий и фиксирующий и записывающий действия лонгкета
-    в голосовых чатах указанного сервера."""
+class RecordiaBot(discord.Client):
+    """Discord bot logging and recording discord user actions inside voice
+    channels within specified discord guild."""
 
     def __init__(
         self,
         *args,
         guild_name: str,
-        longcat_names: Collection[str],
-        notifiers: tuple,
+        user_names: Collection[str],
+        notifiers: Collection,
         record: bool = True,
+        savedir: str = "records",
         recorder_sink=None,
         privacy_doorstep: int = 5,
         connect_delay: int = 10,
@@ -67,23 +69,25 @@ class LongcatRecorder(discord.Client):
         staying_number: int = 1,
         **kwargs,
     ):
-        """guild_name       - название сервера, в котором стоит вести слежку
-        longcat_names    - ники аккаунтов лонгкета
-        notifiers        - нотификаторы
-        record           - стоит ли записывать, что говорят люди в голосовом чате
-        recorder_sink    - **не** инициализированный кодек записи голосовых сообщений, например, `discord.sinks.MP4Sink`, чтобы звук писался в .mp4 формате
-        privacy_doorstep - сколько человек как минимум должно быть в голосовом чате, чтобы бот подключался
-        connect_delay    - задержка перед подключением к голосовому чату
-        disconnect_delay - задержка перед выходом из голосового чата
+        """guild_name       - guild name to log
+        user_names       - names of users to be logged
+        notifiers        - classes with `notify` method to be called when some vc-related action happened
+        record           - should bot record what people say in a voice channel
+        savedir          - directory to save recordings in
+        recorder_sink    - **un**initialized voice recording codec, e. g. `discord.sinks.MP4Sink` to write sound in mp4 format
+        privacy_doorstep - minimum number of people inside a voice channel for bot to connect
+        connect_delay    - delay before voice channel connection
+        disconnect_delay - delay before voice channel disconnection
         disable_connect_delay_just_after_start:
-        - отключить ли искусственную задержку перед подключением в голосовой чат, если бот только что запустился
-        staying_number   - сколько человек должно быть в голосовом чате, чтобы бот оставался в чате
+        - should the fake connect delay be turned off if the bot had just started
+        staying_number   - how many people should be in a voice channel for bot to stay there
         """
         super().__init__(*args, **kwargs)
 
         self.guild_name = guild_name
-        self.longcat_names = longcat_names
+        self.user_names = user_names
         self.do_record = record
+        self.savedir = savedir
         self.privacy_doorstep = privacy_doorstep
         self.recorder_sink = recorder_sink if recorder_sink else discord.sinks.WaveSink
         self.connect_delay = connect_delay
@@ -97,22 +101,22 @@ class LongcatRecorder(discord.Client):
 
     async def on_ready(self):
         print(f"Logged in as {self.user}")
-        print(f'Watching {self.longcat_names} within "{self.guild_name}" guild')
+        print(f'Watching {self.user_names} within "{self.guild_name}" guild')
         print("------")
 
-        self.guild = discord.utils.get(self.guilds, name=GUILD)
+        self.guild = discord.utils.get(self.guilds, name=self.guild_name)
         self.initial_nickname = self.guild.me.nick
-        self.longcats = set(
-            filter(lambda member: member.name in LONGCATS, self.guild.members)
+        self.watch_users = set(
+            filter(lambda member: member.name in self.user_names, self.guild.members)
         )
 
-        for longcat in self.longcats:
-            if longcat.voice is not None and longcat.voice.channel is not None:
+        for user in self.watch_users:
+            if user.voice is not None and user.voice.channel is not None:
                 if not self.disable_connect_delay_just_after_start:
                     await asyncio.sleep(self.connect_delay)
                 await self.record_or_stop(
-                    longcat.voice.channel,
-                    (await self.stamp_voice_state(longcat)).strftime(DTFORMAT),
+                    user.voice.channel,
+                    (await self.stamp_voice_state(user)).strftime(DTFORMAT),
                 )
                 break
 
@@ -122,7 +126,7 @@ class LongcatRecorder(discord.Client):
         old_voice_state: discord.VoiceState,
         new_voice_state: discord.VoiceState,
     ):
-        if not self.is_ready() or member not in self.longcats:
+        if not self.is_ready() or member not in self.watch_users:
             return
 
         if old_voice_state.channel == new_voice_state.channel:
@@ -196,7 +200,7 @@ class LongcatRecorder(discord.Client):
             await self.reset_nickname()
 
     async def start_recording(self, save_id):
-        """save_id - идентификатор сохранненых записей, например, timestamp"""
+        """save_id - identifier of the saved recording, e. g. timestamp."""
 
         print("Start recording")
 
@@ -231,7 +235,7 @@ class LongcatRecorder(discord.Client):
         if self.vclient is not None:
             self.vclient.stop()
 
-        savedir = os.path.join(PROJECT_ROOT, "records", save_id)
+        savedir = os.path.join(PROJECT_ROOT, self.savedir, save_id)
 
         os.makedirs(savedir, exist_ok=True)
 
@@ -267,44 +271,122 @@ class LongcatRecorder(discord.Client):
 
 
 if __name__ == "__main__":
+    import logging
+
+    SINKS = {
+        "m4a": discord.sinks.M4ASink,
+        "mka": discord.sinks.MKASink,
+        "mkv": discord.sinks.MKVSink,
+        "mp3": discord.sinks.MP3Sink,
+        "mp4": discord.sinks.MP4Sink,
+        "ogg": discord.sinks.OGGSink,
+        "pcm": discord.sinks.PCMSink,
+        "wave": discord.sinks.WaveSink,
+    }
+
+    def parse_args():
+        import argparse
+
+        parser = argparse.ArgumentParser(
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+        parser.add_argument(
+            "-D",
+            "--discord-token",
+            metavar="TOKEN",
+            help="Token used to authorize the discord bot or DISCORD_TOKEN env",
+        )
+        parser.add_argument(
+            "-T",
+            "--telegram-token",
+            metavar="TOKEN",
+            help="Token used to authorize the telegram bot or TELEGRAM_TOKEN env",
+        )
+        parser.add_argument(
+            "-C",
+            "--telegram-chats",
+            metavar="IDS",
+            help="Telegram chats for telegram bot to send notifications in",
+        )
+        parser.add_argument(
+            "-r",
+            "--record",
+            help="should bot record what people say in a voice channel",
+            action="store_true",
+        )
+        parser.add_argument(
+            "-o",
+            "--savedir",
+            metavar="DIR",
+            help="Directory relative to program location to save bot recordings in",
+            default="records",
+        )
+        parser.add_argument(
+            "-e",
+            "--sound-encoding",
+            metavar="ENC",
+            help=f"Format for sound to be encoded and written in. Available: {', '.join(sink_encodings := SINKS.keys())}",
+            choices=sink_encodings,
+            default="ogg",
+        )
+        parser.add_argument(
+            "-p",
+            "--privacy-doorstep",
+            metavar="NUM",
+            help="Minimum number of people inside a voice channel for bot to connect",
+            type=int,
+            default=3,
+        )
+        parser.add_argument(
+            "-c",
+            "--connect-delay",
+            metavar="SECS",
+            help="Delay before voice channel connection",
+            type=int,
+            default=(60 * 5),
+        )
+        parser.add_argument(
+            "-d",
+            "--disconnect-delay",
+            metavar="SECS",
+            help="Delay before voice channel disconnection",
+            type=int,
+            default=(60 * 5),
+        )
+
+        parser.add_argument("guild", help="guild name to log")
+        parser.add_argument("users", help="comma-separated names of users to be logged")
+
+        return parser, parser.parse_args()
+
     logging.disable(logging.INFO)
     load_dotenv()
 
-    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-    TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+    cli, args = parse_args()
 
-    if DISCORD_TOKEN is None:
-        raise ValueError("Discord token was not provided")
+    if (discord_token := args.discord_token) is None and (
+        discord_token := os.getenv("DISCORD_TOKEN")
+    ) is None:
+        cli.error("Discord token was not provided")
 
-    if TELEGRAM_TOKEN is None:
-        raise ValueError("Discord token was not provided")
+    notifiers = list()
+    notifiers.append(BaseNotifier())
 
-    DEBUG = int(os.getenv("DEBUG", 0))
+    if args.telegram_chats and (
+        (token := args.discord_token) or (token := os.getenv("TELEGRAM_TOKEN"))
+    ):
+        notifiers.append(
+            TelegramNotifier(chats=args.telegram_chats.split(","), token=token)
+        )
 
-    if DEBUG:
-        GUILD, LONGCATS = "Mark's Testing Polygon", {"markmelix2"}
-    else:
-        GUILD, LONGCATS = "Простое Сообщество", {"agent_of_silence", "а.т.#2766"}
-
-    ADMINS = {
-        425717640,  # Mark
-    }
-    OTHERS = {
-        891074228,  # Anton
-    }
-
-    CHATS = ADMINS if DEBUG else ADMINS.union(OTHERS)
-
-    print("Running in", "debug" if DEBUG else "release", "mode")
-
-    LongcatRecorder(
-        guild_name=GUILD,
-        longcat_names=LONGCATS,
-        notifiers=(BaseNotifier(),)
-        if DEBUG
-        else (BaseNotifier(), TelegramNotifier(chats=CHATS, token=TELEGRAM_TOKEN)),
-        recorder_sink=discord.sinks.OGGSink,
-        privacy_doorstep=int(os.getenv("PRIVACY_DOORSTEP", 0 if DEBUG else 3)),
-        disconnect_delay=0 if DEBUG else (60 * 5),
-        connect_delay=0 if DEBUG else (60 * 5),
-    ).run(DISCORD_TOKEN)
+    RecordiaBot(
+        guild_name=args.guild,
+        user_names=args.users.split(","),
+        notifiers=notifiers,
+        record=args.record,
+        savedir=args.savedir,
+        recorder_sink=SINKS[args.sound_encoding],
+        privacy_doorstep=args.privacy_doorstep,
+        disconnect_delay=args.disconnect_delay,
+        connect_delay=args.connect_delay,
+    ).run(discord_token)
