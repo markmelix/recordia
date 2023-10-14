@@ -60,6 +60,7 @@ class RecordiaBot(discord.Client):
         user_names: Collection[str],
         notifiers: Collection,
         record: bool = True,
+        savedir: str = "records",
         recorder_sink=None,
         privacy_doorstep: int = 5,
         connect_delay: int = 10,
@@ -72,6 +73,7 @@ class RecordiaBot(discord.Client):
         user_names       - names of users to be logged
         notifiers        - classes with `notify` method to be called when some vc-related action happened
         record           - should bot record what people say in a voice channel
+        savedir          - directory to save recordings in
         recorder_sink    - **un**initialized voice recording codec, e. g. `discord.sinks.MP4Sink` to write sound in mp4 format
         privacy_doorstep - minimum number of people inside a voice channel for bot to connect
         connect_delay    - delay before voice channel connection
@@ -85,6 +87,7 @@ class RecordiaBot(discord.Client):
         self.guild_name = guild_name
         self.user_names = user_names
         self.do_record = record
+        self.savedir = savedir
         self.privacy_doorstep = privacy_doorstep
         self.recorder_sink = recorder_sink if recorder_sink else discord.sinks.WaveSink
         self.connect_delay = connect_delay
@@ -232,7 +235,7 @@ class RecordiaBot(discord.Client):
         if self.vclient is not None:
             self.vclient.stop()
 
-        savedir = os.path.join(PROJECT_ROOT, "records", save_id)
+        savedir = os.path.join(PROJECT_ROOT, self.savedir, save_id)
 
         os.makedirs(savedir, exist_ok=True)
 
@@ -312,6 +315,13 @@ if __name__ == "__main__":
             action="store_true",
         )
         parser.add_argument(
+            "-o",
+            "--savedir",
+            metavar="DIR",
+            help="Directory relative to program location to save bot recordings in",
+            default="records",
+        )
+        parser.add_argument(
             "-e",
             "--sound-encoding",
             metavar="ENC",
@@ -374,6 +384,7 @@ if __name__ == "__main__":
         user_names=args.users.split(","),
         notifiers=notifiers,
         record=args.record,
+        savedir=args.savedir,
         recorder_sink=SINKS[args.sound_encoding],
         privacy_doorstep=args.privacy_doorstep,
         disconnect_delay=args.disconnect_delay,
