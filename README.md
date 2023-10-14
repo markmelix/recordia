@@ -18,5 +18,6 @@ root.
 ## Running bots
 ```shell
 poetry shell
+./recordia.py --help # see available options
 ./recordia.py -D "discord_token" -T "telegram_token" "Name of a guild to watch" "user1,user2,user3" # watch users user1, user2 and user3 within specified guild
 ```
