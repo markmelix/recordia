@@ -103,11 +103,11 @@ class RecordiaBot(discord.Client):
 
         self.guild = discord.utils.get(self.guilds, name=self.guild_name)
         self.initial_nickname = self.guild.me.nick
-        self.users = set(
+        self.watch_users = set(
             filter(lambda member: member.name in self.user_names, self.guild.members)
         )
 
-        for user in self.users:
+        for user in self.watch_users:
             if user.voice is not None and user.voice.channel is not None:
                 if not self.disable_connect_delay_just_after_start:
                     await asyncio.sleep(self.connect_delay)
@@ -123,7 +123,7 @@ class RecordiaBot(discord.Client):
         old_voice_state: discord.VoiceState,
         new_voice_state: discord.VoiceState,
     ):
-        if not self.is_ready() or member not in self.users:
+        if not self.is_ready() or member not in self.watch_users:
             return
 
         if old_voice_state.channel == new_voice_state.channel:
@@ -271,14 +271,14 @@ if __name__ == "__main__":
     import logging
 
     SINKS = {
-        "m4a": discord.sinks.m4a,
-        "mka": discord.sinks.mka,
-        "mkv": discord.sinks.mkv,
-        "mp3": discord.sinks.mp3,
-        "mp4": discord.sinks.mp4,
-        "ogg": discord.sinks.ogg,
-        "pcm": discord.sinks.pcm,
-        "wave": discord.sinks.wave,
+        "m4a": discord.sinks.M4ASink,
+        "mka": discord.sinks.MKASink,
+        "mkv": discord.sinks.MKVSink,
+        "mp3": discord.sinks.MP3Sink,
+        "mp4": discord.sinks.MP4Sink,
+        "ogg": discord.sinks.OGGSink,
+        "pcm": discord.sinks.PCMSink,
+        "wave": discord.sinks.WaveSink,
     }
 
     def parse_args():
@@ -289,16 +289,19 @@ if __name__ == "__main__":
         )
         parser.add_argument(
             "-D",
+            "--discord-token",
             metavar="TOKEN",
             help="Token used to authorize the discord bot or DISCORD_TOKEN env",
         )
         parser.add_argument(
             "-T",
+            "--telegram-token",
             metavar="TOKEN",
             help="Token used to authorize the telegram bot or TELEGRAM_TOKEN env",
         )
         parser.add_argument(
             "-C",
+            "--telegram-chats",
             metavar="IDS",
             help="Telegram chats for telegram bot to send notifications in",
         )
@@ -310,6 +313,7 @@ if __name__ == "__main__":
         )
         parser.add_argument(
             "-e",
+            "--sound-encoding",
             metavar="ENC",
             help=f"Format for sound to be encoded and written in. Available: {', '.join(sink_encodings := SINKS.keys())}",
             choices=sink_encodings,
@@ -317,6 +321,7 @@ if __name__ == "__main__":
         )
         parser.add_argument(
             "-p",
+            "--privacy-doorstep",
             metavar="NUM",
             help="Minimum number of people inside a voice channel for bot to connect",
             type=int,
@@ -324,6 +329,7 @@ if __name__ == "__main__":
         )
         parser.add_argument(
             "-c",
+            "--connect-delay",
             metavar="SECS",
             help="Delay before voice channel connection",
             type=int,
@@ -331,6 +337,7 @@ if __name__ == "__main__":
         )
         parser.add_argument(
             "-d",
+            "--disconnect-delay",
             metavar="SECS",
             help="Delay before voice channel disconnection",
             type=int,
@@ -347,7 +354,9 @@ if __name__ == "__main__":
 
     cli, args = parse_args()
 
-    if args.discord_token is None and os.getenv("DISCORD_TOKEN") is None:
+    if (discord_token := args.discord_token) is None and (
+        discord_token := os.getenv("DISCORD_TOKEN")
+    ) is None:
         cli.error("Discord token was not provided")
 
     notifiers = list()
@@ -369,4 +378,4 @@ if __name__ == "__main__":
         privacy_doorstep=args.privacy_doorstep,
         disconnect_delay=args.disconnect_delay,
         connect_delay=args.connect_delay,
-    ).run(args.discord_token)
+    ).run(discord_token)
