@@ -305,6 +305,6 @@ if __name__ == "__main__":
         else (BaseNotifier(), TelegramNotifier(chats=CHATS, token=TELEGRAM_TOKEN)),
         recorder_sink=discord.sinks.OGGSink,
         privacy_doorstep=int(os.getenv("PRIVACY_DOORSTEP", 0 if DEBUG else 3)),
-        disconnect_delay=0 if DEBUG else 15,
-        connect_delay=0 if DEBUG else 10,
+        disconnect_delay=0 if DEBUG else (60 * 5),
+        connect_delay=0 if DEBUG else (60 * 5),
     ).run(DISCORD_TOKEN)
