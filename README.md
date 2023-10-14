@@ -1,15 +1,22 @@
-# Longcat Voice Logging Botkit
-Комплект ботов, логирующих действия лонгкета в голосовых чатах.
+# Recordia Voice Logging Botkit
+Botkit for logging and recording actions of users in voice channels in a guild.
 
-Telegram бот уведомляет, когда лонгкет заходит/выходит из голосового чата.
+Telegram bot notifies when specified user (dis)connects a voice channel.
 
-Discord бот логирует все подключения/отключения лонгкета из голосовых чатов и записывает голосовые разговоры с ним.
+Discord bot logs all voice channel (dis)connections and records all voice sounds
+within specific user.
 
-## Установка
-Для работы записи голоса нужно установить пакеты libffi-dev (libffi-devel на некоторых системах) и python-dev (например python3.11-dev для Python 3.11).
-После установки нужных системных пакетов, введите ```poetry install``` в корне проекта. 
 
-## Запуск ботов
+## Installation
+For voice recording you must have `libffi-dev`, `python-dev` and `ffmpeg`
+installed. Also having `poetry` python manager is required to install set up
+everything. 
+
+After you install everything needed, run `chmod +x recordia.py && poetry install` inside the project
+root.
+
+## Running bots
 ```shell
-poetry run python bot.py
+poetry shell
+./recordia.py -D "discord_token" -T "telegram_token" "Name of a guild to watch" "user1,user2,user3" # watch users user1, user2 and user3 within specified guild
 ```
